@@ -53,7 +53,10 @@ cargo build --release
 4. **Install binary**:
 
    ```bash
-   # Use the installation script (recommended)
+   # Quick install from remote (recommended)
+   curl -fsSL https://raw.githubusercontent.com/joel-xiao/lazyssh/main/install.sh | bash
+
+   # Or use local installation script
    ./install.sh
 
    # Or manually install

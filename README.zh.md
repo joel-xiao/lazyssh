@@ -53,7 +53,10 @@
 4. **安装二进制文件**：
 
    ```bash
-   # 使用安装脚本（推荐）
+   # 快速远程安装（推荐）
+   curl -fsSL https://raw.githubusercontent.com/joel-xiao/lazyssh/main/install.sh | bash
+
+   # 或使用本地安装脚本
    ./install.sh
 
    # 或手动安装
