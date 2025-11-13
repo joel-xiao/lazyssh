@@ -1,0 +1,25 @@
+[package]
+name = "lazyssh"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A cross-platform SSH management tool with TUI interface"
+license = "MIT"
+repository = "https://github.com/joel-xiao/lazyssh"
+homepage = "https://github.com/joel-xiao/lazyssh"
+keywords = ["ssh", "tui", "terminal", "management"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.9.8"
+dirs = "6.0.0"
+crossterm = "0.29.0"
+tui = "0.19.0"
+dialoguer = "0.12"
+which = "8.0.0"
+
+
+
+
+

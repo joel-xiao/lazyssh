@@ -1,0 +1,43 @@
+name: Build RPM
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-rpm:
+    name: Build RPM Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm rust cargo
+
+      - name: Create source tarball
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          git archive --format=tar.gz --prefix=lazyssh-$VERSION/ -o lazyssh-$VERSION.tar.gz HEAD
+
+      - name: Build RPM
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mkdir -p ~/rpmbuild/{SOURCES,SPECS,RPMS,SRPMS}
+          cp lazyssh-$VERSION.tar.gz ~/rpmbuild/SOURCES/
+          cp lazyssh.spec ~/rpmbuild/SPECS/
+          sed -i "s/Version:.*/Version: $VERSION/" ~/rpmbuild/SPECS/lazyssh.spec
+          rpmbuild -ba ~/rpmbuild/SPECS/lazyssh.spec
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: rpm-packages
+          path: ~/rpmbuild/RPMS/**/*.rpm
+
