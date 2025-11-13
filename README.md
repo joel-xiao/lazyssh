@@ -21,17 +21,50 @@ It provides a **graphical TUI interface** for managing SSH hosts with support fo
 
 ## Installation
 
-### From Source
+### Quick Install (Recommended)
+
+The easiest way to install LazySSH is using the installation script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/joel-xiao/lazyssh/main/install.sh | bash
+```
+
+This script will:
+- Automatically detect your platform (Linux/macOS/Windows)
+- Download the latest release from GitHub
+- Install the binary to `/usr/local/bin`
+- Configure your PATH environment variable
+- Fall back to building from source if the release is not available
+
+### Pre-built Binaries
+
+Pre-built binaries for Linux, macOS, and Windows are available in the [Releases](https://github.com/joel-xiao/lazyssh/releases) section.
+
+**Download and install manually:**
+
+1. Download the appropriate binary for your platform from [Releases](https://github.com/joel-xiao/lazyssh/releases)
+2. Extract the archive
+3. Move the binary to a directory in your PATH (e.g., `/usr/local/bin`)
+
+```bash
+# Example for Linux/macOS
+tar -xzf lazyssh-linux-x86_64.tar.gz
+sudo mv lazyssh /usr/local/bin/
+sudo chmod +x /usr/local/bin/lazyssh
+```
+
+### Build from Source
+
+If you prefer to build from source or the pre-built binaries don't work for your platform:
 
 1. **Prerequisites**:
-
    - Rust toolchain (1.70+): [rustup.rs](https://rustup.rs/)
    - SSH client (usually pre-installed on Linux/macOS, Windows 10+ includes OpenSSH)
    - Optional: `sshpass` for auto password login (Linux/macOS)
 
 2. **Install sshpass** (optional, for auto-login):
 
-```bash
+   ```bash
    # Debian/Ubuntu
    sudo apt install sshpass
 
@@ -40,23 +73,23 @@ It provides a **graphical TUI interface** for managing SSH hosts with support fo
 
    # Arch Linux
    sudo pacman -S sshpass
+
+   # Fedora/RHEL
+   sudo dnf install sshpass
    ```
 
-3. **Build from source**:
-
-```bash
-   git clone https://github.com/joel-xiao/lazyssh.git
-cd lazyssh
-cargo build --release
-```
-
-4. **Install binary**:
+3. **Clone and build**:
 
    ```bash
-   # Quick install from remote (recommended)
-   curl -fsSL https://raw.githubusercontent.com/joel-xiao/lazyssh/main/install.sh | bash
+   git clone https://github.com/joel-xiao/lazyssh.git
+   cd lazyssh
+   cargo build --release
+   ```
 
-   # Or use local installation script
+4. **Install the binary**:
+
+   ```bash
+   # Using the installation script
    ./install.sh
 
    # Or manually install
@@ -64,9 +97,15 @@ cargo build --release
    sudo chmod +x /usr/local/bin/lazyssh
    ```
 
-### Pre-built Binaries
+### Verify Installation
 
-Pre-built binaries for Linux, macOS, and Windows are available in the [Releases](https://github.com/joel-xiao/lazyssh/releases) section.
+After installation, verify that LazySSH is working:
+
+```bash
+lazyssh --version
+```
+
+If the command is not found, make sure `/usr/local/bin` is in your PATH, or restart your terminal.
 
 ---
 
@@ -252,14 +291,32 @@ tail -f application.log
 
 ## Troubleshooting
 
-### sshpass not found
+### Installation Issues
+
+**Installation script fails:**
+- Make sure you have `curl` or `wget` installed
+- Check your internet connection
+- If the release download fails, the script will automatically try to build from source (requires Rust/Cargo)
+
+**Binary not found after installation:**
+- Make sure `/usr/local/bin` is in your PATH
+- Restart your terminal or run `source ~/.bashrc` (or `source ~/.zshrc` for zsh)
+- Check if the binary exists: `ls -l /usr/local/bin/lazyssh`
+
+**Permission denied during installation:**
+- The script will use `sudo` if needed
+- Make sure you have sudo privileges or install to a user-writable directory
+
+### Runtime Issues
+
+**sshpass not found:**
 
 If you see "sshpass not found" but want to use auto-login:
 
 - Install sshpass (see Installation section)
-- Or use SSH Key authentication instead
+- Or use SSH Key authentication instead (recommended)
 
-### Shift+Enter doesn't work
+**Shift+Enter doesn't work:**
 
 Some terminals don't support Shift+Enter detection. Solutions:
 
@@ -267,12 +324,22 @@ Some terminals don't support Shift+Enter detection. Solutions:
 - Use a terminal that supports Shift+Enter (e.g., iTerm2, Alacritty)
 - Type commands on a single line separated by `;`
 
-### Permission denied
+**Permission denied:**
 
 If you get permission errors:
 
 ```bash
 chmod +x lazyssh
+chmod 600 ~/.lazyssh/config.toml
+```
+
+**Configuration file not found:**
+
+The config file is created automatically on first run. If you need to create it manually:
+
+```bash
+mkdir -p ~/.lazyssh
+touch ~/.lazyssh/config.toml
 chmod 600 ~/.lazyssh/config.toml
 ```
 
@@ -344,8 +411,10 @@ Current version: **v0.2.0**
 - ✨ Add remote installation script support (`curl | bash`)
 - ✨ Add automatic PATH environment variable configuration
 - ✨ Support automatic platform detection for binary downloads
+- ✨ Fallback to build from source when release download fails
 - 🐛 Fix sshpass installation command for macOS
 - 📝 Improve documentation with language switcher
+- 🔧 Improve installation script error handling and code structure
 
 #### v0.1.0
 - 🎉 Initial release

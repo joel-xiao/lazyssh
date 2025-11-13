@@ -21,10 +21,43 @@
 
 ## 安装
 
+### 快速安装（推荐）
+
+最简单的安装方式是使用安装脚本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/joel-xiao/lazyssh/main/install.sh | bash
+```
+
+该脚本将：
+- 自动检测您的平台（Linux/macOS/Windows）
+- 从 GitHub 下载最新版本
+- 将二进制文件安装到 `/usr/local/bin`
+- 配置您的 PATH 环境变量
+- 如果发布版本不可用，将自动回退到从源码构建
+
+### 预编译二进制文件
+
+Linux、macOS 和 Windows 的预编译二进制文件可在 [Releases](https://github.com/joel-xiao/lazyssh/releases) 页面下载。
+
+**手动下载并安装：**
+
+1. 从 [Releases](https://github.com/joel-xiao/lazyssh/releases) 下载适合您平台的二进制文件
+2. 解压归档文件
+3. 将二进制文件移动到 PATH 目录中（例如 `/usr/local/bin`）
+
+```bash
+# Linux/macOS 示例
+tar -xzf lazyssh-linux-x86_64.tar.gz
+sudo mv lazyssh /usr/local/bin/
+sudo chmod +x /usr/local/bin/lazyssh
+```
+
 ### 从源码编译
 
-1. **前置要求**：
+如果您希望从源码编译，或者预编译二进制文件不适用于您的平台：
 
+1. **前置要求**：
    - Rust 工具链 (1.70+): [rustup.rs](https://rustup.rs/)
    - SSH 客户端（Linux/macOS 通常已预装，Windows 10+ 包含 OpenSSH）
    - 可选：`sshpass` 用于自动密码登录（Linux/macOS）
@@ -40,9 +73,12 @@
 
    # Arch Linux
    sudo pacman -S sshpass
+
+   # Fedora/RHEL
+   sudo dnf install sshpass
    ```
 
-3. **从源码编译**：
+3. **克隆并编译**：
 
    ```bash
    git clone https://github.com/joel-xiao/lazyssh.git
@@ -53,10 +89,7 @@
 4. **安装二进制文件**：
 
    ```bash
-   # 快速远程安装（推荐）
-   curl -fsSL https://raw.githubusercontent.com/joel-xiao/lazyssh/main/install.sh | bash
-
-   # 或使用本地安装脚本
+   # 使用安装脚本
    ./install.sh
 
    # 或手动安装
@@ -64,9 +97,15 @@
    sudo chmod +x /usr/local/bin/lazyssh
    ```
 
-### 预编译二进制文件
+### 验证安装
 
-Linux、macOS 和 Windows 的预编译二进制文件可在 [Releases](https://github.com/joel-xiao/lazyssh/releases) 页面下载。
+安装完成后，验证 LazySSH 是否正常工作：
+
+```bash
+lazyssh --version
+```
+
+如果命令未找到，请确保 `/usr/local/bin` 在您的 PATH 中，或重启终端。
 
 ---
 
@@ -253,14 +292,32 @@ tail -f application.log
 
 ## 故障排除
 
-### sshpass 未找到
+### 安装问题
+
+**安装脚本失败：**
+- 确保已安装 `curl` 或 `wget`
+- 检查网络连接
+- 如果发布版本下载失败，脚本会自动尝试从源码构建（需要 Rust/Cargo）
+
+**安装后找不到二进制文件：**
+- 确保 `/usr/local/bin` 在您的 PATH 中
+- 重启终端或运行 `source ~/.bashrc`（zsh 用户运行 `source ~/.zshrc`）
+- 检查二进制文件是否存在：`ls -l /usr/local/bin/lazyssh`
+
+**安装时权限被拒绝：**
+- 脚本会在需要时使用 `sudo`
+- 确保您有 sudo 权限，或安装到用户可写目录
+
+### 运行时问题
+
+**sshpass 未找到：**
 
 如果看到 "sshpass not found" 但想使用自动登录：
 
 - 安装 sshpass（参见安装部分）
-- 或使用 SSH Key 认证
+- 或使用 SSH Key 认证（推荐）
 
-### Shift+Enter 不工作
+**Shift+Enter 不工作：**
 
 某些终端不支持 Shift+Enter 检测。解决方案：
 
@@ -268,12 +325,22 @@ tail -f application.log
 - 使用支持 Shift+Enter 的终端（如 iTerm2、Alacritty）
 - 使用单行命令，用 `;` 分隔
 
-### 权限被拒绝
+**权限被拒绝：**
 
 如果遇到权限错误：
 
 ```bash
 chmod +x lazyssh
+chmod 600 ~/.lazyssh/config.toml
+```
+
+**找不到配置文件：**
+
+配置文件会在首次运行时自动创建。如果需要手动创建：
+
+```bash
+mkdir -p ~/.lazyssh
+touch ~/.lazyssh/config.toml
 chmod 600 ~/.lazyssh/config.toml
 ```
 
@@ -345,8 +412,10 @@ cargo build --release --target x86_64-pc-windows-msvc
 - ✨ 添加远程安装脚本支持（`curl | bash`）
 - ✨ 添加自动 PATH 环境变量配置
 - ✨ 支持自动平台检测下载二进制文件
+- ✨ 当发布版本下载失败时自动回退到从源码构建
 - 🐛 修复 macOS 的 sshpass 安装命令
 - 📝 改进文档，添加语言切换器
+- 🔧 改进安装脚本的错误处理和代码结构
 
 #### v0.1.0
 - 🎉 首次发布

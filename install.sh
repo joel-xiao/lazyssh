@@ -1,25 +1,54 @@
 #!/bin/bash
 
-set -e
+# LazySSH Installation Script
+# This script installs LazySSH from GitHub releases or builds from source
+
+set -euo pipefail
 
 # Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m' # No Color
 
 # Configuration
-REPO="joel-xiao/lazyssh"
-INSTALL_DIR="/usr/local/bin"
-BINARY_NAME="lazyssh"
+readonly REPO="joel-xiao/lazyssh"
+readonly INSTALL_DIR="/usr/local/bin"
+readonly BINARY_NAME="lazyssh"
+readonly DEFAULT_VERSION="v0.2.0"
+
+# Global variables
+OS=""
+ARCH=""
+EXT=""
+PLATFORM=""
+VERSION=""
+
+# Print colored messages
+info() {
+    echo -e "${BLUE}$1${NC}"
+}
+
+success() {
+    echo -e "${GREEN}$1${NC}"
+}
+
+warning() {
+    echo -e "${YELLOW}$1${NC}"
+}
+
+error() {
+    echo -e "${RED}$1${NC}" >&2
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
 
 # Detect OS and architecture
 detect_platform() {
-    OS=""
-    ARCH=""
-    EXT=""
-    
     case "$(uname -s)" in
         Linux*)
             OS="linux"
@@ -34,7 +63,7 @@ detect_platform() {
             EXT=".exe"
             ;;
         *)
-            echo -e "${RED}Unsupported OS: $(uname -s)${NC}"
+            error "Unsupported OS: $(uname -s)"
             exit 1
             ;;
     esac
@@ -47,7 +76,7 @@ detect_platform() {
             ARCH="arm64"
             ;;
         *)
-            echo -e "${RED}Unsupported architecture: $(uname -m)${NC}"
+            error "Unsupported architecture: $(uname -m)"
             exit 1
             ;;
     esac
@@ -55,191 +84,273 @@ detect_platform() {
     PLATFORM="${OS}-${ARCH}"
 }
 
-# Get latest release version
+# Get latest release version from GitHub API
 get_latest_version() {
-    if command -v curl &> /dev/null; then
-        VERSION=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    elif command -v wget &> /dev/null; then
-        VERSION=$(wget -qO- "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    local api_url="https://api.github.com/repos/${REPO}/releases/latest"
+    local version=""
+    local response=""
+    
+    if command_exists curl; then
+        response=$(curl -sSL "$api_url" 2>/dev/null || echo "")
+    elif command_exists wget; then
+        response=$(wget -qO- "$api_url" 2>/dev/null || echo "")
     else
-        echo -e "${RED}Error: curl or wget is required${NC}"
+        error "Error: curl or wget is required"
         exit 1
     fi
     
-    if [ -z "$VERSION" ]; then
-        echo -e "${YELLOW}Warning: Could not fetch latest version, using v0.2.0${NC}"
-        VERSION="v0.2.0"
+    if [ -n "$response" ]; then
+        if command_exists jq; then
+            version=$(echo "$response" | jq -r '.tag_name // empty' 2>/dev/null || echo "")
+        else
+            version=$(echo "$response" | grep '"tag_name":' | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/' | head -1 || echo "")
+        fi
+    fi
+    
+    if [ -z "$version" ] || [ "$version" = "null" ]; then
+        warning "Could not fetch latest version, using ${DEFAULT_VERSION}"
+        VERSION="$DEFAULT_VERSION"
+    else
+        VERSION="$version"
     fi
 }
 
-# Download and install binary
-install_from_release() {
-    echo -e "${GREEN}Downloading LazySSH ${VERSION}...${NC}"
+# Download file using curl or wget
+download_file() {
+    local url="$1"
+    local output="$2"
+    
+    if command_exists curl; then
+        curl -fsSL "$url" -o "$output"
+    elif command_exists wget; then
+        wget -q "$url" -O "$output"
+    else
+        error "Error: curl or wget is required"
+        return 1
+    fi
+}
+
+# Install binary to target directory
+install_binary() {
+    local source_file="$1"
+    local target_file="$2"
+    
+    # Create install directory if it doesn't exist
+    [ ! -d "$INSTALL_DIR" ] && sudo mkdir -p "$INSTALL_DIR"
+    
+    # Determine if sudo is needed
+    local sudo_cmd=""
+    [ ! -w "$INSTALL_DIR" ] && sudo_cmd="sudo"
+    
+    # Copy and set permissions
+    $sudo_cmd cp "$source_file" "$target_file"
+    $sudo_cmd chmod +x "$target_file"
+    success "✓ Installed to $target_file"
+}
+
+# Extract archive (tar.gz or zip)
+extract_archive() {
+    local archive_file="$1"
+    local extract_dir="$2"
+    
+    cd "$extract_dir" || exit 1
     
     if [ "$OS" = "windows" ]; then
-        ASSET_NAME="${BINARY_NAME}-${PLATFORM}${EXT}.zip"
-        DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET_NAME}"
-    else
-        ASSET_NAME="${BINARY_NAME}-${PLATFORM}${EXT}.tar.gz"
-        DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET_NAME}"
-    fi
-    
-    TEMP_DIR=$(mktemp -d)
-    trap "rm -rf $TEMP_DIR" EXIT
-    
-    echo -e "${BLUE}Downloading from: $DOWNLOAD_URL${NC}"
-    
-    if command -v curl &> /dev/null; then
-        curl -fsSL "$DOWNLOAD_URL" -o "$TEMP_DIR/${ASSET_NAME}"
-    elif command -v wget &> /dev/null; then
-        wget -q "$DOWNLOAD_URL" -O "$TEMP_DIR/${ASSET_NAME}"
-    else
-        echo -e "${RED}Error: curl or wget is required${NC}"
-        exit 1
-    fi
-    
-    if [ ! -f "$TEMP_DIR/${ASSET_NAME}" ]; then
-        echo -e "${RED}Error: Download failed${NC}"
-        exit 1
-    fi
-    
-    # Extract
-    cd "$TEMP_DIR"
-    if [ "$OS" = "windows" ]; then
-        if command -v unzip &> /dev/null; then
-            unzip -q "${ASSET_NAME}"
-        else
-            echo -e "${RED}Error: unzip is required${NC}"
+        if ! command_exists unzip; then
+            error "Error: unzip is required for Windows archives"
             exit 1
         fi
+        unzip -q "$archive_file"
     else
-        tar -xzf "${ASSET_NAME}"
-    fi
-    
-    # Install
-    if [ -f "${BINARY_NAME}${EXT}" ]; then
-        if [ ! -d "$INSTALL_DIR" ]; then
-            sudo mkdir -p "$INSTALL_DIR"
-        fi
-        
-        if [ -w "$INSTALL_DIR" ]; then
-            SUDO=""
-        else
-            SUDO="sudo"
-        fi
-        
-        $SUDO cp "${BINARY_NAME}${EXT}" "$INSTALL_DIR/${BINARY_NAME}"
-        $SUDO chmod +x "$INSTALL_DIR/${BINARY_NAME}"
-        echo -e "${GREEN}✓ Installed to $INSTALL_DIR/${BINARY_NAME}${NC}"
-    else
-        echo -e "${RED}Error: Binary not found in archive${NC}"
-        exit 1
+        tar -xzf "$archive_file"
     fi
 }
 
-# Build from source
+# Download and install binary from GitHub release
+install_from_release() {
+    info "Downloading LazySSH ${VERSION}..."
+    
+    # Determine asset name and URL
+    local asset_name
+    [ "$OS" = "windows" ] && asset_name="${BINARY_NAME}-${PLATFORM}${EXT}.zip" || asset_name="${BINARY_NAME}-${PLATFORM}${EXT}.tar.gz"
+    local download_url="https://github.com/${REPO}/releases/download/${VERSION}/${asset_name}"
+    
+    info "Downloading from: $download_url"
+    
+    # Create temporary directory
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    trap "rm -rf $temp_dir" EXIT
+    
+    # Download the release
+    local archive_path="$temp_dir/$asset_name"
+    if ! download_file "$download_url" "$archive_path" 2>/dev/null || [ ! -f "$archive_path" ]; then
+        warning "Release ${VERSION} not found or download failed"
+        info "Attempting to build from source instead..."
+        trap - EXIT
+        rm -rf "$temp_dir"
+        build_from_source_clone
+        return
+    fi
+    
+    # Extract archive
+    extract_archive "$archive_path" "$temp_dir"
+    
+    # Find and install binary
+    local binary_path="$temp_dir/${BINARY_NAME}${EXT}"
+    [ ! -f "$binary_path" ] && { error "Error: Binary not found in archive"; exit 1; }
+    
+    install_binary "$binary_path" "$INSTALL_DIR/${BINARY_NAME}"
+}
+
+# Build from source (when already in repository)
 build_from_source() {
-    echo -e "${GREEN}Building LazySSH from source...${NC}"
+    info "Building LazySSH from source..."
     
-    if ! command -v cargo &> /dev/null; then
-        echo -e "${RED}Error: Rust/Cargo is not installed.${NC}"
-        echo "Please install Rust from https://rustup.rs/"
-        exit 1
-    fi
+    command_exists cargo || { error "Error: Rust/Cargo is not installed."; echo "Please install Rust from https://rustup.rs/"; exit 1; }
     
-    cargo build --release
+    info "Compiling binary (this may take a few minutes)..."
+    cargo build --release || { error "Error: Build failed"; exit 1; }
     
-    if [ ! -f "target/release/${BINARY_NAME}" ]; then
-        echo -e "${RED}Error: Build failed or binary not found${NC}"
-        exit 1
-    fi
+    local binary_path="target/release/${BINARY_NAME}"
+    [ ! -f "$binary_path" ] && { error "Error: Build succeeded but binary not found"; exit 1; }
     
-    if [ ! -d "$INSTALL_DIR" ]; then
-        sudo mkdir -p "$INSTALL_DIR"
-    fi
-    
-    if [ -w "$INSTALL_DIR" ]; then
-        SUDO=""
-    else
-        SUDO="sudo"
-    fi
-    
-    $SUDO cp "target/release/${BINARY_NAME}" "$INSTALL_DIR/${BINARY_NAME}"
-    $SUDO chmod +x "$INSTALL_DIR/${BINARY_NAME}"
-    echo -e "${GREEN}✓ Built and installed to $INSTALL_DIR/${BINARY_NAME}${NC}"
+    install_binary "$binary_path" "$INSTALL_DIR/${BINARY_NAME}"
 }
 
-# Configure PATH
-configure_path() {
-    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+# Build from source by cloning the repository
+build_from_source_clone() {
+    info "Building LazySSH from source..."
+    
+    command_exists cargo || {
+        error "Error: Rust/Cargo is not installed."
+        echo "Please install Rust from https://rustup.rs/"
         echo ""
-        echo -e "${YELLOW}Adding $INSTALL_DIR to PATH...${NC}"
-        
-        SHELL_NAME=$(basename "$SHELL")
-        SHELL_RC=""
-        
-        case "$SHELL_NAME" in
-            bash)
-                SHELL_RC="$HOME/.bashrc"
-                ;;
-            zsh)
-                SHELL_RC="$HOME/.zshrc"
-                ;;
-            fish)
-                SHELL_RC="$HOME/.config/fish/config.fish"
-                ;;
-            *)
-                if [ -f "$HOME/.bashrc" ]; then
-                    SHELL_RC="$HOME/.bashrc"
-                elif [ -f "$HOME/.zshrc" ]; then
-                    SHELL_RC="$HOME/.zshrc"
-                elif [ -f "$HOME/.profile" ]; then
-                    SHELL_RC="$HOME/.profile"
-                fi
-                ;;
-        esac
-        
-        if [ -n "$SHELL_RC" ]; then
-            if ! grep -q "export PATH.*$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
-                echo "" >> "$SHELL_RC"
-                echo "# LazySSH - Add /usr/local/bin to PATH" >> "$SHELL_RC"
-                echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_RC"
-                echo -e "${GREEN}✓ Added PATH export to $SHELL_RC${NC}"
-                echo -e "${YELLOW}Please run: source $SHELL_RC${NC}"
-                echo -e "${YELLOW}Or restart your terminal${NC}"
-            else
-                echo -e "${GREEN}✓ PATH already configured in $SHELL_RC${NC}"
+        echo "Alternatively, you can manually install:"
+        echo "  git clone https://github.com/${REPO}.git"
+        echo "  cd lazyssh"
+        echo "  cargo build --release"
+        echo "  sudo cp target/release/${BINARY_NAME} $INSTALL_DIR/${BINARY_NAME}"
+        exit 1
+    }
+    
+    command_exists git || { error "Error: git is required to build from source"; exit 1; }
+    
+    # Create temporary directory
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    trap "rm -rf $temp_dir" EXIT
+    
+    info "Cloning repository..."
+    git clone --depth 1 "https://github.com/${REPO}.git" "$temp_dir/lazyssh" || { error "Error: Failed to clone repository"; exit 1; }
+    
+    cd "$temp_dir/lazyssh" || exit 1
+    
+    info "Building binary (this may take a few minutes)..."
+    cargo build --release || { error "Error: Build failed"; exit 1; }
+    
+    local binary_path="target/release/${BINARY_NAME}"
+    [ ! -f "$binary_path" ] && { error "Error: Build succeeded but binary not found"; exit 1; }
+    
+    install_binary "$binary_path" "$INSTALL_DIR/${BINARY_NAME}"
+}
+
+# Configure PATH environment variable
+configure_path() {
+    # Check if install directory is already in PATH
+    if [[ ":$PATH:" == *":$INSTALL_DIR:"* ]]; then
+        success "✓ $INSTALL_DIR is already in PATH"
+        return
+    fi
+    
+    echo ""
+    warning "Adding $INSTALL_DIR to PATH..."
+    
+    # Detect shell configuration file
+    local shell_name
+    shell_name=$(basename "$SHELL")
+    local shell_rc=""
+    
+    case "$shell_name" in
+        bash)
+            shell_rc="$HOME/.bashrc"
+            ;;
+        zsh)
+            shell_rc="$HOME/.zshrc"
+            ;;
+        fish)
+            shell_rc="$HOME/.config/fish/config.fish"
+            ;;
+        *)
+            # Fallback: try common config files
+            if [ -f "$HOME/.bashrc" ]; then
+                shell_rc="$HOME/.bashrc"
+            elif [ -f "$HOME/.zshrc" ]; then
+                shell_rc="$HOME/.zshrc"
+            elif [ -f "$HOME/.profile" ]; then
+                shell_rc="$HOME/.profile"
             fi
+            ;;
+    esac
+    
+    # Add PATH export to config file
+    if [ -n "$shell_rc" ]; then
+        if grep -q "export PATH.*$INSTALL_DIR" "$shell_rc" 2>/dev/null; then
+            success "✓ PATH already configured in $shell_rc"
         else
-            echo -e "${YELLOW}Could not detect shell config file${NC}"
-            echo "Please manually add to your shell config:"
-            echo "  export PATH=\"\$PATH:$INSTALL_DIR\""
+            {
+                echo ""
+                echo "# LazySSH - Add $INSTALL_DIR to PATH"
+                echo "export PATH=\"\$PATH:$INSTALL_DIR\""
+            } >> "$shell_rc"
+            
+            success "✓ Added PATH export to $shell_rc"
+            warning "Please run: source $shell_rc"
+            warning "Or restart your terminal"
         fi
     else
-        echo -e "${GREEN}✓ $INSTALL_DIR is already in PATH${NC}"
+        warning "Could not detect shell config file"
+        echo "Please manually add to your shell config:"
+        echo "  export PATH=\"\$PATH:$INSTALL_DIR\""
+    fi
+}
+
+# Verify installation
+verify_installation() {
+    local binary_path="$INSTALL_DIR/${BINARY_NAME}"
+    
+    if [ -f "$binary_path" ] && [ -x "$binary_path" ]; then
+        echo ""
+        success "✓ LazySSH installed successfully!"
+        success "  Location: $binary_path"
+        echo ""
+        echo "You can now run: ${BINARY_NAME}"
+    else
+        error "Error: Installation verification failed"
+        exit 1
     fi
 }
 
 # Main installation function
 main() {
-    echo -e "${GREEN}LazySSH Installation Script${NC}"
+    success "LazySSH Installation Script"
     echo "================================"
     echo ""
     
+    # Detect platform
     detect_platform
-    echo -e "${BLUE}Detected platform: $PLATFORM${NC}"
-    echo -e "${BLUE}Install directory: $INSTALL_DIR${NC}"
+    info "Detected platform: $PLATFORM"
+    info "Install directory: $INSTALL_DIR"
     echo ""
     
-    # Check if we're in a git repository (source install)
+    # Determine installation method
     if [ -d ".git" ] && [ -f "Cargo.toml" ]; then
-        echo -e "${GREEN}Detected source repository, building from source...${NC}"
+        info "Detected source repository, building from source..."
         build_from_source
     else
-        # Try to install from release
-        echo -e "${GREEN}Installing from GitHub Releases...${NC}"
+        info "Installing from GitHub Releases..."
         get_latest_version
-        echo -e "${BLUE}Latest version: $VERSION${NC}"
+        info "Latest version: $VERSION"
         install_from_release
     fi
     
@@ -247,17 +358,9 @@ main() {
     configure_path
     
     # Verify installation
-    if [ -f "$INSTALL_DIR/${BINARY_NAME}" ]; then
-        echo ""
-        echo -e "${GREEN}✓ LazySSH installed successfully!${NC}"
-        echo -e "${GREEN}  Location: $INSTALL_DIR/${BINARY_NAME}${NC}"
-        echo ""
-        echo "You can now run: ${BINARY_NAME}"
-    else
-        echo -e "${RED}Error: Installation verification failed${NC}"
-        exit 1
-    fi
+    verify_installation
 }
 
 # Run main function
-main
+main "$@"
+
