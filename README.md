@@ -1,3 +1,5 @@
+**English** | [中文](README.zh.md)
+
 # LazySSH
 
 A cross-platform SSH management tool written in **Rust**, inspired by `lazygit`.  

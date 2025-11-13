@@ -1,3 +1,5 @@
+[English](README.md) | **中文**
+
 # LazySSH / 懒人 SSH
 
 一个使用 **Rust** 编写的跨平台 SSH 管理工具，灵感来自 `lazygit`。  
