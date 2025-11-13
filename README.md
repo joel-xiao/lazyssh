@@ -334,6 +334,28 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
+## Version
+
+Current version: **v0.2.0**
+
+### Changelog
+
+#### v0.2.0
+- ✨ Add remote installation script support (`curl | bash`)
+- ✨ Add automatic PATH environment variable configuration
+- ✨ Support automatic platform detection for binary downloads
+- 🐛 Fix sshpass installation command for macOS
+- 📝 Improve documentation with language switcher
+
+#### v0.1.0
+- 🎉 Initial release
+- ✨ Graphical TUI interface for SSH host management
+- ✨ Add, edit, delete hosts with form editor
+- ✨ Multi-line command support
+- ✨ Auto-login with sshpass support
+
+---
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
