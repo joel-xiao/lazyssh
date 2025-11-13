@@ -53,15 +53,68 @@ echo -e "${GREEN}Installing lazyssh to $INSTALL_DIR...${NC}"
 $SUDO cp target/release/lazyssh "$INSTALL_DIR/lazyssh"
 $SUDO chmod +x "$INSTALL_DIR/lazyssh"
 
-# Verify installation
-if command -v lazyssh &> /dev/null; then
-    INSTALLED_PATH=$(which lazyssh)
+# Verify installation and check PATH
+INSTALLED_PATH="$INSTALL_DIR/lazyssh"
+if [ -f "$INSTALLED_PATH" ]; then
     echo ""
     echo -e "${GREEN}✓ LazySSH installed successfully!${NC}"
     echo -e "${GREEN}  Location: $INSTALLED_PATH${NC}"
+    
+    # Check if /usr/local/bin is in PATH
+    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+        echo ""
+        echo -e "${YELLOW}Adding $INSTALL_DIR to PATH...${NC}"
+        
+        # Detect shell
+        SHELL_NAME=$(basename "$SHELL")
+        SHELL_RC=""
+        
+        case "$SHELL_NAME" in
+            bash)
+                SHELL_RC="$HOME/.bashrc"
+                ;;
+            zsh)
+                SHELL_RC="$HOME/.zshrc"
+                ;;
+            fish)
+                SHELL_RC="$HOME/.config/fish/config.fish"
+                ;;
+            *)
+                # Try common files
+                if [ -f "$HOME/.bashrc" ]; then
+                    SHELL_RC="$HOME/.bashrc"
+                elif [ -f "$HOME/.zshrc" ]; then
+                    SHELL_RC="$HOME/.zshrc"
+                elif [ -f "$HOME/.profile" ]; then
+                    SHELL_RC="$HOME/.profile"
+                fi
+                ;;
+        esac
+        
+        if [ -n "$SHELL_RC" ]; then
+            # Check if already added
+            if ! grep -q "export PATH.*$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
+                echo "" >> "$SHELL_RC"
+                echo "# LazySSH - Add /usr/local/bin to PATH" >> "$SHELL_RC"
+                echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$SHELL_RC"
+                echo -e "${GREEN}✓ Added PATH export to $SHELL_RC${NC}"
+                echo -e "${YELLOW}Please run: source $SHELL_RC${NC}"
+                echo -e "${YELLOW}Or restart your terminal${NC}"
+            else
+                echo -e "${GREEN}✓ PATH already configured in $SHELL_RC${NC}"
+            fi
+        else
+            echo -e "${YELLOW}Could not detect shell config file${NC}"
+            echo "Please manually add to your shell config:"
+            echo "  export PATH=\"\$PATH:$INSTALL_DIR\""
+        fi
+    else
+        echo -e "${GREEN}✓ $INSTALL_DIR is already in PATH${NC}"
+    fi
+    
     echo ""
     echo "You can now run: lazyssh"
 else
-    echo -e "${YELLOW}Warning: lazyssh not found in PATH${NC}"
-    echo "You may need to add $INSTALL_DIR to your PATH"
+    echo -e "${RED}Error: Installation failed${NC}"
+    exit 1
 fi
