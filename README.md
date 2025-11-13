@@ -31,12 +31,12 @@ It provides a **graphical TUI interface** for managing SSH hosts with support fo
 
 2. **Install sshpass** (optional, for auto-login):
 
-   ```bash
+```bash
    # Debian/Ubuntu
    sudo apt install sshpass
 
    # macOS Homebrew
-   brew install hudochenkov/sshpass/sshpass
+   brew install sshpass
 
    # Arch Linux
    sudo pacman -S sshpass
@@ -44,11 +44,11 @@ It provides a **graphical TUI interface** for managing SSH hosts with support fo
 
 3. **Build from source**:
 
-   ```bash
+```bash
    git clone https://github.com/joel-xiao/lazyssh.git
-   cd lazyssh
-   cargo build --release
-   ```
+cd lazyssh
+cargo build --release
+```
 
 4. **Install binary** (optional):
 
@@ -70,7 +70,7 @@ Pre-built binaries for Linux, macOS, and Windows are available in the [Releases]
 
 1. **Run the application**:
 
-   ```bash
+```bash
    lazyssh
    ```
 

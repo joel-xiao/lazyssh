@@ -36,7 +36,7 @@
    sudo apt install sshpass
 
    # macOS Homebrew
-   brew install hudochenkov/sshpass/sshpass
+   brew install sshpass
 
    # Arch Linux
    sudo pacman -S sshpass
