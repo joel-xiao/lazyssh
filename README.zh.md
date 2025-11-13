@@ -50,14 +50,15 @@
    cargo build --release
    ```
 
-4. **安装二进制文件**（可选）：
+4. **安装二进制文件**：
 
    ```bash
-   # Linux/macOS
-   sudo cp target/release/lazyssh /usr/local/bin/
+   # 使用安装脚本（推荐）
+   ./install.sh
 
-   # 或添加到 PATH
-   export PATH=$PATH:$(pwd)/target/release
+   # 或手动安装
+   sudo cp target/release/lazyssh /usr/local/bin/
+   sudo chmod +x /usr/local/bin/lazyssh
    ```
 
 ### 预编译二进制文件

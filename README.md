@@ -50,14 +50,15 @@ cd lazyssh
 cargo build --release
 ```
 
-4. **Install binary** (optional):
+4. **Install binary**:
 
    ```bash
-   # Linux/macOS
-   sudo cp target/release/lazyssh /usr/local/bin/
+   # Use the installation script (recommended)
+   ./install.sh
 
-   # Or add to PATH
-   export PATH=$PATH:$(pwd)/target/release
+   # Or manually install
+   sudo cp target/release/lazyssh /usr/local/bin/
+   sudo chmod +x /usr/local/bin/lazyssh
    ```
 
 ### Pre-built Binaries
