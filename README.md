@@ -5,6 +5,8 @@
 A cross-platform SSH management tool written in **Rust**, inspired by `lazygit`.  
 It provides a **graphical TUI interface** for managing SSH hosts with support for **auto-login and command execution**.
 
+https://github.com/user-attachments/assets/0b7d87fb-09f3-4e01-bf28-ce2a73ae2aca
+
 ## Features
 
 - **Graphical TUI interface** for managing SSH hosts
