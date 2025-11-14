@@ -1,4 +1,5 @@
 use crate::config::Host;
+use crate::i18n::I18n;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -116,10 +117,10 @@ impl Ui {
             .unwrap_or(value.len())
     }
 
-    fn validate_and_exit_on_error(host: &Host, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
+    fn validate_and_exit_on_error(host: &Host, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, i18n_ref: &I18n) -> io::Result<()> {
         if host.user.is_empty() || host.host.is_empty() {
             Self::exit_tui(terminal)?;
-            eprintln!("错误: 主机格式不正确");
+            eprintln!("{}", i18n_ref.invalid_host_format());
             std::process::exit(1);
         }
         Ok(())
@@ -155,7 +156,7 @@ impl Ui {
         }
     }
 
-    pub fn run<F>(hosts: Vec<Host>, mut on_action: F) -> io::Result<()>
+    pub fn run<F>(hosts: Vec<Host>, i18n: I18n, mut on_action: F) -> io::Result<()>
     where F: FnMut(Action)
     {
         enable_raw_mode()?;
@@ -167,6 +168,7 @@ impl Ui {
         let mut app = AppState::new(hosts);
 
         loop {
+            let i18n_ref = &i18n;
             terminal.draw(|f| {
                 let size = f.size();
                 let chunks = Layout::default()
@@ -392,13 +394,13 @@ impl Ui {
                         f.render_widget(form_widget, main_chunks[1]);
                     }
                     AppMode::ConfirmDelete { host_name, .. } => {
-                        let host_name_display = format!("│  确认删除主机: {:30} │", truncate(host_name, 30));
+                        let host_name_display = i18n_ref.confirm_delete_host(&truncate(host_name, 30));
                         let confirm_lines = vec![
                             "┌──────────────────────────────────────────┐",
                             "│                                          │",
                             host_name_display.as_str(),
                             "│                                          │",
-                            "│  按 'y' 确认删除，按 'n' 取消           │",
+                            i18n_ref.press_y_to_confirm(),
                             "│                                          │",
                             "└──────────────────────────────────────────┘",
                         ];
@@ -425,7 +427,7 @@ impl Ui {
                     },
                     AppMode::ConfirmDelete { .. } => {
                         vec![
-                            "  y: 确认删除  │  n/Esc: 取消"
+                            i18n_ref.confirm_delete()
                         ]
                     },
                     AppMode::Form { fields, selected, .. } => {
@@ -497,7 +499,7 @@ impl Ui {
                             KeyCode::Char('p') => {
                                 if let Some(clipped_host) = &app.clipboard {
                                     let new_host = clipped_host.clone();
-                                    Self::validate_and_exit_on_error(&new_host, &mut terminal)?;
+                                    Self::validate_and_exit_on_error(&new_host, &mut terminal, &i18n)?;
                                     Self::exit_tui(&mut terminal)?;
                                     on_action(Action::Add(new_host));
                                     break;
@@ -507,14 +509,14 @@ impl Ui {
                                             match ctx.get_contents() {
                                                 Ok(content) => {
                                                     if let Some(parsed_host) = Self::parse_ssh_command(&content) {
-                                                        Self::validate_and_exit_on_error(&parsed_host, &mut terminal)?;
+                                                        Self::validate_and_exit_on_error(&parsed_host, &mut terminal, &i18n)?;
                                                         app.clipboard = Some(parsed_host.clone());
                                                         Self::exit_tui(&mut terminal)?;
                                                         on_action(Action::Add(parsed_host));
                                                         break;
                                                     } else {
                                                         Self::exit_tui(&mut terminal)?;
-                                                        eprintln!("错误: 无法解析剪贴板内容为有效的 SSH 命令格式");
+                                                        eprintln!("{}", i18n.clipboard_parse_error());
                                                         std::process::exit(1);
                                                     }
                                                 }

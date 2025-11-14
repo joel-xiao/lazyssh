@@ -98,6 +98,34 @@ tail -f application.log
 
 ## 使用方法
 
+### 语言设置
+
+LazySSH 会根据系统语言自动显示中文或英文界面。你也可以手动指定语言：
+
+**优先级（从高到低）：**
+1. 命令行参数：`--lang` 或 `-l`（例如：`lazyssh --lang zh` 或 `lazyssh --lang en`）
+2. 环境变量：`LAZYSSH_LANG`（例如：`export LAZYSSH_LANG=zh`）
+3. 系统语言：自动检测 `LANG`、`LC_ALL` 或 `LC_MESSAGES`
+
+**示例：**
+```bash
+# 强制使用中文界面
+lazyssh --lang zh
+
+# 强制使用英文界面
+lazyssh --lang en
+
+# 通过环境变量设置
+export LAZYSSH_LANG=zh
+lazyssh
+```
+
+### 命令行选项
+
+- `-V, --version`: 显示版本信息
+- `-h, --help`: 显示帮助信息
+- `-l, --lang CODE`: 指定语言 (zh/en)
+
 ### 快捷键
 
 **主界面：**
@@ -184,9 +212,16 @@ cargo test --test config_test
 
 ## 版本
 
-当前版本：**v0.3.2**
+当前版本：**v0.3.3**
 
 ### 更新日志
+
+#### v0.3.3
+- ✨ 添加国际化（i18n）支持，自动检测系统语言
+- ✨ 添加 `--lang` / `-l` 命令行选项指定语言
+- ✨ 支持 `LAZYSSH_LANG` 环境变量设置语言
+- ✨ 所有提示信息根据系统/用户偏好显示中文或英文
+- 🧪 添加完整的 i18n 功能测试套件
 
 #### v0.3.2
 - 🐛 修复表单字段中 UTF-8 字符输入支持（中文、日文等）

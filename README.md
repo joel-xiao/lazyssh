@@ -98,6 +98,34 @@ tail -f application.log
 
 ## Usage
 
+### Language Settings
+
+LazySSH automatically detects your system language and displays messages in Chinese or English accordingly. You can also manually specify the language:
+
+**Priority (from highest to lowest):**
+1. Command line argument: `--lang` or `-l` (e.g., `lazyssh --lang zh` or `lazyssh --lang en`)
+2. Environment variable: `LAZYSSH_LANG` (e.g., `export LAZYSSH_LANG=zh`)
+3. System language: Automatically detected from `LANG`, `LC_ALL`, or `LC_MESSAGES`
+
+**Examples:**
+```bash
+# Force Chinese interface
+lazyssh --lang zh
+
+# Force English interface
+lazyssh --lang en
+
+# Set via environment variable
+export LAZYSSH_LANG=zh
+lazyssh
+```
+
+### Command Line Options
+
+- `-V, --version`: Show version information
+- `-h, --help`: Show help information
+- `-l, --lang CODE`: Specify language (zh/en)
+
 ### Keyboard Shortcuts
 
 **Main Interface:**
@@ -184,9 +212,16 @@ Contributions welcome! Fork, create a feature branch, commit changes, and open a
 
 ## Version
 
-Current version: **v0.3.2**
+Current version: **v0.3.3**
 
 ### Changelog
+
+#### v0.3.3
+- ✨ Add internationalization (i18n) support with automatic language detection
+- ✨ Add `--lang` / `-l` command line option to specify language
+- ✨ Support `LAZYSSH_LANG` environment variable for language setting
+- ✨ All messages now display in Chinese or English based on system/user preference
+- 🧪 Add comprehensive test suite for i18n functionality
 
 #### v0.3.2
 - 🐛 Fix UTF-8 character input support (Chinese, Japanese, etc.) in form fields
