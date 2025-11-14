@@ -88,6 +88,32 @@ impl Ui {
         if field.cursor_pos > field.value.len() {
             field.cursor_pos = field.value.len();
         }
+        field.cursor_pos = field.value.char_indices()
+            .map(|(i, _)| i)
+            .chain(std::iter::once(field.value.len()))
+            .find(|&i| i >= field.cursor_pos)
+            .unwrap_or(field.value.len());
+    }
+
+    fn move_cursor_left(value: &str, pos: usize) -> usize {
+        if pos == 0 {
+            return 0;
+        }
+        value.char_indices()
+            .map(|(i, _)| i)
+            .rev()
+            .find(|&i| i < pos)
+            .unwrap_or(0)
+    }
+
+    fn move_cursor_right(value: &str, pos: usize) -> usize {
+        if pos >= value.len() {
+            return value.len();
+        }
+        value.char_indices()
+            .map(|(i, _)| i)
+            .find(|&i| i > pos)
+            .unwrap_or(value.len())
     }
 
     fn validate_and_exit_on_error(host: &Host, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
@@ -598,14 +624,10 @@ impl Ui {
                                     }
                                 }
                                 KeyCode::Left => {
-                                    if field.cursor_pos > 0 {
-                                        field.cursor_pos -= 1;
-                                    }
+                                    field.cursor_pos = Self::move_cursor_left(&field.value, field.cursor_pos);
                                 }
                                 KeyCode::Right => {
-                                    if field.cursor_pos < field.value.len() {
-                                        field.cursor_pos += 1;
-                                    }
+                                    field.cursor_pos = Self::move_cursor_right(&field.value, field.cursor_pos);
                                 }
                                 KeyCode::Home => {
                                     field.cursor_pos = 0;
@@ -634,18 +656,23 @@ impl Ui {
                                 }
                                 KeyCode::Backspace => {
                                     if field.cursor_pos > 0 {
-                                        field.cursor_pos -= 1;
-                                        field.value.remove(field.cursor_pos);
+                                        let new_pos = Self::move_cursor_left(&field.value, field.cursor_pos);
+                                        let char_len = field.cursor_pos - new_pos;
+                                        field.value.drain(new_pos..new_pos + char_len);
+                                        field.cursor_pos = new_pos;
                                     }
                                 }
                                 KeyCode::Delete => {
                                     if field.cursor_pos < field.value.len() {
-                                        field.value.remove(field.cursor_pos);
+                                        let next_pos = Self::move_cursor_right(&field.value, field.cursor_pos);
+                                        let char_len = next_pos - field.cursor_pos;
+                                        field.value.drain(field.cursor_pos..field.cursor_pos + char_len);
                                     }
                                 }
                                 KeyCode::Char(c) => {
+                                    let char_len = c.len_utf8();
                                     field.value.insert(field.cursor_pos, c);
-                                    field.cursor_pos += 1;
+                                    field.cursor_pos += char_len;
                                 }
                                 _ => {}
                             }

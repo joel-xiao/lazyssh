@@ -184,9 +184,20 @@ Contributions welcome! Fork, create a feature branch, commit changes, and open a
 
 ## Version
 
-Current version: **v0.3.1**
+Current version: **v0.3.2**
 
 ### Changelog
+
+#### v0.3.2
+- 🐛 Fix UTF-8 character input support (Chinese, Japanese, etc.) in form fields
+- 🐛 Fix cursor movement and deletion for multi-byte characters
+- 🔧 Improve cursor position normalization to handle UTF-8 boundaries correctly
+
+#### v0.3.1
+- 🐛 Increase SSH connection timeout from 5s to 30s
+- 🐛 Auto-accept new host keys to prevent connection blocking
+- 🐛 Improve error detection: only show error for exit code 255
+- 🐛 Add error message when SSH connection fails
 
 #### v0.3.0
 - ✨ New `y` shortcut: Copy selected host's SSH command to clipboard
