@@ -5,6 +5,8 @@
 一个使用 **Rust** 编写的跨平台 SSH 管理工具，灵感来自 `lazygit`。  
 提供 **图形化 TUI 界面**，支持 **自动登录和自动执行命令**。
 
+https://github.com/user-attachments/assets/0b7d87fb-09f3-4e01-bf28-ce2a73ae2aca
+
 ## 功能特点
 
 - **图形化 TUI 界面**管理 SSH 主机
