@@ -23,7 +23,7 @@ This guide explains how to publish LazySSH to Homebrew and RPM repositories.
    cd homebrew-lazyssh
    cp /path/to/lazyssh/Formula/lazyssh.rb Formula/
    
-   # Get SHA256: curl -sL https://github.com/joel-xiao/lazyssh/archive/v0.2.0.tar.gz | shasum -a 256
+   # Get SHA256: curl -sL https://github.com/joel-xiao/lazyssh/archive/v0.3.0.tar.gz | shasum -a 256
    # Update sha256 in Formula/lazyssh.rb
    ```
 
@@ -61,13 +61,13 @@ This guide explains how to publish LazySSH to Homebrew and RPM repositories.
 
    ```bash
    # Create source tarball
-   git archive --format=tar.gz --prefix=lazyssh-0.2.0/ -o lazyssh-0.2.0.tar.gz v0.2.0
+   git archive --format=tar.gz --prefix=lazyssh-0.3.0/ -o lazyssh-0.3.0.tar.gz v0.3.0
    
    # Build SRPM
    rpmbuild -bs lazyssh.spec
    
    # Upload to COPR
-   copr-cli build joel-xiao/lazyssh lazyssh-0.2.0-1.src.rpm
+   copr-cli build joel-xiao/lazyssh lazyssh-0.3.0-1.src.rpm
    ```
 
 3. **Users can install**:

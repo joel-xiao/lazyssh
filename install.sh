@@ -16,7 +16,7 @@ readonly NC='\033[0m' # No Color
 readonly REPO="joel-xiao/lazyssh"
 readonly INSTALL_DIR="/usr/local/bin"
 readonly BINARY_NAME="lazyssh"
-readonly DEFAULT_VERSION="v0.2.0"
+readonly DEFAULT_VERSION="v0.3.0"
 
 # Global variables
 OS=""

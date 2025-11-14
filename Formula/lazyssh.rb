@@ -1,7 +1,7 @@
 class Lazyssh < Formula
   desc "A cross-platform SSH management tool with TUI interface"
   homepage "https://github.com/joel-xiao/lazyssh"
-  url "https://github.com/joel-xiao/lazyssh/archive/v0.2.0.tar.gz"
+  url "https://github.com/joel-xiao/lazyssh/archive/v0.3.0.tar.gz"
   sha256 "" # Replace with actual SHA256 after first release
   license "MIT"
 

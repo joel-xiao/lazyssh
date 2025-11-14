@@ -1,6 +1,6 @@
 use crate::config::Host;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -13,22 +13,24 @@ use tui::{
     Terminal,
 };
 use std::io;
+use clipboard::ClipboardProvider;
 
 pub enum Action {
     Connect(Host),
     Add(Host),
     Edit(usize, Host),
     Delete(usize),
+    Copy,
     Quit,
 }
 
 pub struct Ui;
 
-struct FormField {
-    label: String,
-    value: String,
-    cursor_pos: usize,
-    is_multiline: bool,
+pub struct FormField {
+    pub label: String,
+    pub value: String,
+    pub cursor_pos: usize,
+    pub is_multiline: bool,
 }
 
 enum AppMode {
@@ -38,38 +40,85 @@ enum AppMode {
         selected: usize,
         editing_host_idx: Option<usize>,
     },
+    ConfirmDelete {
+        host_idx: usize,
+        host_name: String,
+    },
 }
 
-struct AppState {
-    hosts: Vec<Host>,
-    list_index: usize,
+pub struct AppState {
+    pub hosts: Vec<Host>,
+    pub list_index: usize,
     mode: AppMode,
+    clipboard: Option<Host>,
 }
 
 impl AppState {
-    fn new(hosts: Vec<Host>) -> Self {
+    pub fn new(hosts: Vec<Host>) -> Self {
         Self {
             hosts,
             list_index: 0,
             mode: AppMode::Normal,
+            clipboard: None,
         }
     }
 
-    fn selected_host(&self) -> Option<&Host> {
+    pub fn selected_host(&self) -> Option<&Host> {
         self.hosts.get(self.list_index)
     }
 
-    fn move_next(&mut self) {
+    pub fn move_next(&mut self) {
         if self.list_index + 1 < self.hosts.len() { self.list_index += 1; }
     }
 
-    fn move_prev(&mut self) {
+    pub fn move_prev(&mut self) {
         if self.list_index > 0 { self.list_index -= 1; }
     }
 }
 
 impl Ui {
-    fn create_host_from_fields(fields: &[FormField]) -> Host {
+    fn exit_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
+        disable_raw_mode()?;
+        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+        terminal.show_cursor()?;
+        Ok(())
+    }
+
+    pub fn normalize_cursor_pos(field: &mut FormField) {
+        if field.cursor_pos > field.value.len() {
+            field.cursor_pos = field.value.len();
+        }
+    }
+
+    fn validate_and_exit_on_error(host: &Host, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
+        if host.user.is_empty() || host.host.is_empty() {
+            Self::exit_tui(terminal)?;
+            eprintln!("错误: 主机格式不正确");
+            std::process::exit(1);
+        }
+        Ok(())
+    }
+
+    fn save_form_and_exit<F>(
+        fields: &[FormField],
+        editing_host_idx: Option<usize>,
+        terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+        on_action: &mut F,
+    ) -> io::Result<()>
+    where
+        F: FnMut(Action),
+    {
+        let host = Self::create_host_from_fields(fields);
+        Self::exit_tui(terminal)?;
+        if let Some(idx) = editing_host_idx {
+            on_action(Action::Edit(idx, host));
+        } else {
+            on_action(Action::Add(host));
+        }
+        Ok(())
+    }
+
+    pub fn create_host_from_fields(fields: &[FormField]) -> Host {
         Host {
             name: fields[0].value.clone(),
             user: fields[1].value.clone(),
@@ -316,12 +365,41 @@ impl Ui {
                             );
                         f.render_widget(form_widget, main_chunks[1]);
                     }
+                    AppMode::ConfirmDelete { host_name, .. } => {
+                        let host_name_display = format!("│  确认删除主机: {:30} │", truncate(host_name, 30));
+                        let confirm_lines = vec![
+                            "┌──────────────────────────────────────────┐",
+                            "│                                          │",
+                            host_name_display.as_str(),
+                            "│                                          │",
+                            "│  按 'y' 确认删除，按 'n' 取消           │",
+                            "│                                          │",
+                            "└──────────────────────────────────────────┘",
+                        ];
+                        
+                        let confirm_widget = Paragraph::new(confirm_lines.join("\n"))
+                            .style(Style::default().fg(Color::Red))
+                            .block(
+                                Block::default()
+                                    .borders(Borders::ALL)
+                                    .border_style(Style::default().fg(Color::Red))
+                                    .title(Spans::from(vec![
+                                        Span::styled("⚠️  删除确认", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+                                    ]))
+                            );
+                        f.render_widget(confirm_widget, main_chunks[1]);
+                    }
                 }
 
                 let help_text = match &app.mode {
                     AppMode::Normal => {
                         vec![
-                            "  ↑/↓/j/k: Navigate  │  Enter: Connect  │  a: Add  │  e: Edit  │  d: Delete  │  q: Quit"
+                            "  ↑/↓/j/k: Navigate  │  Enter: Connect  │  a: Add  │  e: Edit  │  d: Delete  │  y: Copy  │  p: Paste  │  q/Ctrl+C: Quit"
+                        ]
+                    },
+                    AppMode::ConfirmDelete { .. } => {
+                        vec![
+                            "  y: 确认删除  │  n/Esc: 取消"
                         ]
                     },
                     AppMode::Form { fields, selected, .. } => {
@@ -353,19 +431,72 @@ impl Ui {
 
             if crossterm::event::poll(std::time::Duration::from_millis(100))? {
                 if let Event::Key(KeyEvent { code, modifiers, .. }) = event::read()? {
+                    if code == KeyCode::Char('c') && (modifiers.contains(KeyModifiers::CONTROL) || modifiers.contains(KeyModifiers::SUPER)) {
+                        Self::exit_tui(&mut terminal)?;
+                        on_action(Action::Quit);
+                        break;
+                    }
+                    
                     match &mut app.mode {
                         AppMode::Normal => match code {
                             KeyCode::Up | KeyCode::Char('k') => app.move_prev(),
                             KeyCode::Down | KeyCode::Char('j') => app.move_next(),
                             KeyCode::Char('q') | KeyCode::Esc => {
-                                disable_raw_mode()?; execute!(terminal.backend_mut(), LeaveAlternateScreen)?; terminal.show_cursor()?;
-                                on_action(Action::Quit); break;
+                                Self::exit_tui(&mut terminal)?;
+                                on_action(Action::Quit);
+                                break;
                             }
                             KeyCode::Enter => {
                                 if let Some(h) = app.selected_host() {
-                                    disable_raw_mode()?; execute!(terminal.backend_mut(), LeaveAlternateScreen)?; terminal.show_cursor()?;
+                                    Self::exit_tui(&mut terminal)?;
                                     on_action(Action::Connect(h.clone()));
                                     break;
+                                }
+                            }
+                            KeyCode::Char('y') => {
+                                if let Some(h) = app.selected_host() {
+                                    let host_clone = h.clone();
+                                    app.clipboard = Some(host_clone.clone());
+                                    match clipboard::ClipboardContext::new() {
+                                        Ok(mut ctx) => {
+                                            let ssh_cmd = format!("ssh -p {} {}@{}", 
+                                                host_clone.port.unwrap_or(22), host_clone.user, host_clone.host);
+                                            let _ = ctx.set_contents(ssh_cmd);
+                                        }
+                                        Err(_) => {}
+                                    }
+                                    on_action(Action::Copy);
+                                }
+                            }
+                            KeyCode::Char('p') => {
+                                if let Some(clipped_host) = &app.clipboard {
+                                    let new_host = clipped_host.clone();
+                                    Self::validate_and_exit_on_error(&new_host, &mut terminal)?;
+                                    Self::exit_tui(&mut terminal)?;
+                                    on_action(Action::Add(new_host));
+                                    break;
+                                } else {
+                                    match clipboard::ClipboardContext::new() {
+                                        Ok(mut ctx) => {
+                                            match ctx.get_contents() {
+                                                Ok(content) => {
+                                                    if let Some(parsed_host) = Self::parse_ssh_command(&content) {
+                                                        Self::validate_and_exit_on_error(&parsed_host, &mut terminal)?;
+                                                        app.clipboard = Some(parsed_host.clone());
+                                                        Self::exit_tui(&mut terminal)?;
+                                                        on_action(Action::Add(parsed_host));
+                                                        break;
+                                                    } else {
+                                                        Self::exit_tui(&mut terminal)?;
+                                                        eprintln!("错误: 无法解析剪贴板内容为有效的 SSH 命令格式");
+                                                        std::process::exit(1);
+                                                    }
+                                                }
+                                                Err(_) => {}
+                                            }
+                                        }
+                                        Err(_) => {}
+                                    }
                                 }
                             }
                             KeyCode::Char('a') => {
@@ -403,34 +534,27 @@ impl Ui {
                                 }
                             }
                             KeyCode::Char('d') => {
-                                let idx = app.list_index;
-                                disable_raw_mode()?; execute!(terminal.backend_mut(), LeaveAlternateScreen)?; terminal.show_cursor()?;
-                                on_action(Action::Delete(idx));
-                                break;
+                                if let Some(h) = app.selected_host() {
+                                    let idx = app.list_index;
+                                    app.mode = AppMode::ConfirmDelete {
+                                        host_idx: idx,
+                                        host_name: h.name.clone(),
+                                    };
+                                }
                             }
                             _ => {}
                         },
                         AppMode::Form { fields, selected, editing_host_idx } => {
-                            let current_field = &mut fields[*selected];
-                            if current_field.cursor_pos > current_field.value.len() {
-                                current_field.cursor_pos = current_field.value.len();
-                            }
-                            
+                            Self::normalize_cursor_pos(&mut fields[*selected]);
                             let field = &mut fields[*selected];
                             match code {
                                 KeyCode::Tab => {
                                     *selected = (*selected + 1) % fields.len();
-                                    let new_field = &mut fields[*selected];
-                                    if new_field.cursor_pos > new_field.value.len() {
-                                        new_field.cursor_pos = new_field.value.len();
-                                    }
+                                    Self::normalize_cursor_pos(&mut fields[*selected]);
                                 }
                                 KeyCode::BackTab => {
                                     *selected = if *selected == 0 { fields.len() - 1 } else { *selected - 1 };
-                                    let new_field = &mut fields[*selected];
-                                    if new_field.cursor_pos > new_field.value.len() {
-                                        new_field.cursor_pos = new_field.value.len();
-                                    }
+                                    Self::normalize_cursor_pos(&mut fields[*selected]);
                                 }
                                 KeyCode::Up => {
                                     if field.is_multiline {
@@ -448,15 +572,8 @@ impl Ui {
                                             field.cursor_pos = new_pos;
                                         }
                                     } else {
-                                        if *selected == 0 {
-                                            *selected = fields.len() - 1;
-                                        } else {
-                                            *selected -= 1;
-                                        }
-                                        let new_field = &mut fields[*selected];
-                                        if new_field.cursor_pos > new_field.value.len() {
-                                            new_field.cursor_pos = new_field.value.len();
-                                        }
+                                        *selected = if *selected == 0 { fields.len() - 1 } else { *selected - 1 };
+                                        Self::normalize_cursor_pos(&mut fields[*selected]);
                                     }
                                 }
                                 KeyCode::Down => {
@@ -477,10 +594,7 @@ impl Ui {
                                         }
                                     } else {
                                         *selected = (*selected + 1) % fields.len();
-                                        let new_field = &mut fields[*selected];
-                                        if new_field.cursor_pos > new_field.value.len() {
-                                            new_field.cursor_pos = new_field.value.len();
-                                        }
+                                        Self::normalize_cursor_pos(&mut fields[*selected]);
                                     }
                                 }
                                 KeyCode::Left => {
@@ -507,23 +621,11 @@ impl Ui {
                                             field.value.insert(field.cursor_pos, '\n');
                                             field.cursor_pos += 1;
                                         } else {
-                                            let host = Self::create_host_from_fields(fields);
-                                            disable_raw_mode()?; execute!(terminal.backend_mut(), LeaveAlternateScreen)?; terminal.show_cursor()?;
-                                            if let Some(idx) = editing_host_idx {
-                                                on_action(Action::Edit(*idx, host));
-                                            } else {
-                                                on_action(Action::Add(host));
-                                            }
+                                            Self::save_form_and_exit(fields, *editing_host_idx, &mut terminal, &mut on_action)?;
                                             break;
                                         }
                                     } else {
-                                        let host = Self::create_host_from_fields(fields);
-                                        disable_raw_mode()?; execute!(terminal.backend_mut(), LeaveAlternateScreen)?; terminal.show_cursor()?;
-                                        if let Some(idx) = editing_host_idx {
-                                            on_action(Action::Edit(*idx, host));
-                                        } else {
-                                            on_action(Action::Add(host));
-                                        }
+                                        Self::save_form_and_exit(fields, *editing_host_idx, &mut terminal, &mut on_action)?;
                                         break;
                                     }
                                 }
@@ -548,6 +650,19 @@ impl Ui {
                                 _ => {}
                             }
                         },
+                        AppMode::ConfirmDelete { host_idx, .. } => {
+                            match code {
+                                KeyCode::Char('y') => {
+                                    Self::exit_tui(&mut terminal)?;
+                                    on_action(Action::Delete(*host_idx));
+                                    break;
+                                }
+                                KeyCode::Char('n') | KeyCode::Esc => {
+                                    app.mode = AppMode::Normal;
+                                }
+                                _ => {}
+                            }
+                        }
                     }
                 }
             }
@@ -555,12 +670,58 @@ impl Ui {
 
         Ok(())
     }
+
+    pub fn parse_ssh_command(cmd: &str) -> Option<Host> {
+        let parts: Vec<&str> = cmd.trim().split_whitespace().collect();
+        if parts.is_empty() || parts[0] != "ssh" {
+            return None;
+        }
+
+        let mut port = 22u16;
+        let mut user_host = None;
+
+        let mut i = 1;
+        while i < parts.len() {
+            if parts[i] == "-p" && i + 1 < parts.len() {
+                if let Ok(p) = parts[i + 1].parse::<u16>() {
+                    port = p;
+                    i += 2;
+                    continue;
+                }
+            }
+            if !parts[i].starts_with('-') {
+                user_host = Some(parts[i]);
+                break;
+            }
+            i += 1;
+        }
+
+        if let Some(uh) = user_host {
+            if let Some(at_pos) = uh.find('@') {
+                let user = uh[..at_pos].to_string();
+                let host = uh[at_pos + 1..].to_string();
+                if !user.is_empty() && !host.is_empty() {
+                    return Some(Host {
+                        name: format!("{}@{}", user, host),
+                        user,
+                        host,
+                        port: Some(port),
+                        password: None,
+                        command: None,
+                    });
+                }
+            }
+        }
+
+        None
+    }
 }
 
-fn truncate(s: &str, max_len: usize) -> String {
+pub fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     }
 }
+

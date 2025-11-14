@@ -1,7 +1,7 @@
 %define debug_package %{nil}
 
 Name:           lazyssh
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        A cross-platform SSH management tool with TUI interface
 License:        MIT
@@ -33,6 +33,14 @@ install -m 755 target/release/lazyssh %{buildroot}%{_bindir}/lazyssh
 %{_bindir}/lazyssh
 
 %changelog
+* Wed Dec 18 2024 Your Name <your.email@example.com> - 0.3.0-1
+- Add y shortcut: Copy SSH command to clipboard
+- Add p shortcut: Paste SSH command from clipboard
+- Add Ctrl+C/Cmd+C shortcut to quit
+- Add delete confirmation prompt
+- Refactor test structure to separate tests/ directory
+- Code optimization: Extract common functions
+
 * Wed Nov 13 2024 Your Name <your.email@example.com> - 0.2.0-1
 - Add remote installation script support
 - Add automatic PATH configuration

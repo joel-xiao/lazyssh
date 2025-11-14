@@ -13,7 +13,9 @@ fn main() {
     loop {
         let hosts = cfg.hosts.clone();
         ui::Ui::run(hosts, |action| match action {
-            ui::Action::Connect(h) => ssh_connect(&h),
+            ui::Action::Connect(h) => {
+                ssh_connect(&h);
+            }
             ui::Action::Add(h) => {
                 cfg.add_host(h);
                 cfg.save();
@@ -28,6 +30,7 @@ fn main() {
                 cfg.remove_host(idx);
                 cfg.save();
             }
+            ui::Action::Copy => {}
             ui::Action::Quit => std::process::exit(0),
         }).ok();
     }
@@ -59,12 +62,16 @@ fn ssh_connect(h: &Host) {
             let combined_cmd = commands.join("; ");
             ssh_args.push(userhost);
             ssh_args.push(format!("{}; exec $SHELL -l", combined_cmd));
-        } else {
-            ssh_args.push(userhost);
+            return build_ssh_command(h, ssh_args);
         }
-    } else {
-        ssh_args.push(userhost);
     }
+    
+    ssh_args.push(userhost);
+    build_ssh_command(h, ssh_args)
+}
+
+fn build_ssh_command(h: &Host, ssh_args: Vec<String>) {
+    use std::process::Stdio;
 
     let mut cmd = if let Some(pw) = &h.password {
         if which("sshpass").is_err() {
@@ -80,6 +87,10 @@ fn ssh_connect(h: &Host) {
         ssh_cmd.args(&ssh_args);
         ssh_cmd
     };
+
+    cmd.stdin(Stdio::inherit())
+       .stdout(Stdio::inherit())
+       .stderr(Stdio::inherit());
 
     match cmd.spawn() {
         Ok(mut child) => {

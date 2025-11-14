@@ -11,6 +11,8 @@ It provides a **graphical TUI interface** for managing SSH hosts with support fo
 - **Add, edit, delete hosts** with an intuitive form editor
 - **Password storage** (local config file, optional sshpass auto-login)
 - **Multi-line command support** with interactive shell after execution
+- **Copy/paste functionality**: Quickly copy SSH commands, paste from clipboard
+- **Delete confirmation**: Prevents accidental deletion of host configurations
 - **Uses system SSH** - no additional SSH libraries required
 - **Cross-platform** - Linux/macOS/Windows support
 
@@ -102,11 +104,18 @@ tail -f application.log
 - `↑/↓` or `j/k`: Navigate hosts
 - `Enter`: Connect to selected host
 - `a`: Add host, `e`: Edit, `d`: Delete, `q`: Quit
+- `y`: Copy selected host's SSH command to clipboard
+- `p`: Paste SSH command from clipboard (format must be correct: `ssh user@host` or `ssh -p port user@host`)
+- `Ctrl+C` / `Cmd+C`: Quit application
 
 **Form Editor:**
 - `Tab/↓`: Next field, `Shift+Tab/↑`: Previous field
 - `Enter`: Save, `Esc`: Cancel
 - `Shift+Enter`: New line (in command field)
+
+**Delete Confirmation:**
+- Press `d` to delete a host, confirmation prompt will appear
+- Type `y` to confirm, any other key to cancel
 
 ### Behavior
 
@@ -136,7 +145,9 @@ chmod +x lazyssh
 chmod 600 ~/.lazyssh/config.toml
 ```
 
-## Building
+## Development
+
+### Building
 
 ```bash
 # Debug build
@@ -152,15 +163,38 @@ cargo build --release --target aarch64-apple-darwin
 cargo build --release --target x86_64-pc-windows-msvc
 ```
 
+### Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific test file
+cargo test --test ui_test
+cargo test --test config_test
+```
+
+Test files are located in the `tests/` directory:
+- `tests/ui_test.rs` - UI module tests
+- `tests/config_test.rs` - Config module tests
+
 ## Contributing
 
 Contributions welcome! Fork, create a feature branch, commit changes, and open a Pull Request.
 
 ## Version
 
-Current version: **v0.2.0**
+Current version: **v0.3.0**
 
 ### Changelog
+
+#### v0.3.0
+- ✨ New `y` shortcut: Copy selected host's SSH command to clipboard
+- ✨ New `p` shortcut: Paste SSH command from clipboard (with format validation)
+- ✨ New `Ctrl+C` / `Cmd+C` shortcut to quit
+- ✨ Delete confirmation prompt to prevent accidental deletion
+- 🧪 Refactored test structure: Moved unit tests to separate `tests/` directory
+- 🔧 Code optimization: Extracted common functions, reduced code duplication
 
 #### v0.2.0
 - ✨ Remote installation script support (`curl | bash`)

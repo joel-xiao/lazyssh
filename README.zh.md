@@ -11,6 +11,8 @@
 - **添加、编辑、删除主机**，支持直观的表单编辑器
 - **密码存储**（本地配置文件，可选 sshpass 自动登录）
 - **多行命令支持**，执行后进入交互式 shell
+- **复制/粘贴功能**：快速复制 SSH 命令，支持从剪贴板粘贴
+- **删除确认提示**：防止误删主机配置
 - 完全调用 **系统 SSH**，无需额外 SSH 库
 - **跨平台**支持 Linux/macOS/Windows
 
@@ -102,11 +104,18 @@ tail -f application.log
 - `↑/↓` 或 `j/k`：导航主机
 - `Enter`：连接选中主机
 - `a`：添加，`e`：编辑，`d`：删除，`q`：退出
+- `y`：复制选中主机的 SSH 命令到剪贴板
+- `p`：从剪贴板粘贴 SSH 命令（格式必须正确：`ssh user@host` 或 `ssh -p port user@host`）
+- `Ctrl+C` / `Cmd+C`：退出程序
 
 **表单编辑器：**
 - `Tab/↓`：下一个字段，`Shift+Tab/↑`：上一个字段
 - `Enter`：保存，`Esc`：取消
 - `Shift+Enter`：换行（命令字段）
+
+**删除确认：**
+- 按 `d` 删除主机时会显示确认提示
+- 输入 `y` 确认删除，其他键取消
 
 ### 行为说明
 
@@ -136,7 +145,9 @@ chmod +x lazyssh
 chmod 600 ~/.lazyssh/config.toml
 ```
 
-## 编译
+## 开发
+
+### 编译
 
 ```bash
 # Debug 构建
@@ -152,15 +163,38 @@ cargo build --release --target aarch64-apple-darwin
 cargo build --release --target x86_64-pc-windows-msvc
 ```
 
+### 运行测试
+
+```bash
+# 运行所有测试
+cargo test
+
+# 运行特定测试文件
+cargo test --test ui_test
+cargo test --test config_test
+```
+
+测试文件位于 `tests/` 目录：
+- `tests/ui_test.rs` - UI 模块测试
+- `tests/config_test.rs` - 配置模块测试
+
 ## 贡献
 
 欢迎贡献！Fork 仓库，创建功能分支，提交更改并打开 Pull Request。
 
 ## 版本
 
-当前版本：**v0.2.0**
+当前版本：**v0.3.0**
 
 ### 更新日志
+
+#### v0.3.0
+- ✨ 新增 `y` 快捷键：复制选中主机的 SSH 命令到剪贴板
+- ✨ 新增 `p` 快捷键：从剪贴板粘贴 SSH 命令（格式验证）
+- ✨ 新增 `Ctrl+C` / `Cmd+C` 快捷键退出
+- ✨ 删除主机时显示确认提示，防止误删
+- 🧪 重构测试结构：将单元测试移至独立的 `tests/` 目录
+- 🔧 代码优化：提取公共函数，减少重复代码
 
 #### v0.2.0
 - ✨ 远程安装脚本支持（`curl | bash`）
