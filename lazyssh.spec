@@ -1,7 +1,7 @@
 %define debug_package %{nil}
 
 Name:           lazyssh
-Version:        0.3.0
+Version:        0.3.1
 Release:        1%{?dist}
 Summary:        A cross-platform SSH management tool with TUI interface
 License:        MIT

@@ -45,6 +45,12 @@ fn ensure_sshpass() {
 fn ssh_connect(h: &Host) {
     let mut ssh_args = vec!["-t".to_string()];
     
+    ssh_args.push("-o".to_string());
+    ssh_args.push("ConnectTimeout=30".to_string());
+    
+    ssh_args.push("-o".to_string());
+    ssh_args.push("StrictHostKeyChecking=accept-new".to_string());
+    
     if let Some(port) = h.port {
         ssh_args.push("-p".to_string());
         ssh_args.push(port.to_string());
@@ -76,6 +82,7 @@ fn build_ssh_command(h: &Host, ssh_args: Vec<String>) {
     let mut cmd = if let Some(pw) = &h.password {
         if which("sshpass").is_err() {
             eprintln!("sshpass not found. Cannot auto-login.");
+            wait_for_keypress();
             return;
         }
         let mut sshpass_cmd = Command::new("sshpass");
@@ -94,14 +101,37 @@ fn build_ssh_command(h: &Host, ssh_args: Vec<String>) {
 
     match cmd.spawn() {
         Ok(mut child) => {
-            if let Err(e) = child.wait() {
-                eprintln!("Failed to wait for SSH process: {}", e);
+            match child.wait() {
+                Ok(status) => {
+                    if let Some(exit_code) = status.code() {
+                        if exit_code == 255 {
+                            let userhost = format!("{}@{}", h.user, h.host);
+                            eprintln!("\n❌ SSH 连接失败: {}", userhost);
+                            eprintln!("   退出代码: {}", exit_code);
+                            eprintln!("   可能的原因：网络问题、主机不可达、认证失败等");
+                            eprintln!("\n按回车键返回...");
+                            wait_for_keypress();
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("\n❌ 等待 SSH 进程时出错: {}", e);
+                    wait_for_keypress();
+                }
             }
         }
         Err(e) => {
-            eprintln!("Failed to execute SSH: {}", e);
+            eprintln!("\n❌ 无法执行 SSH 命令: {}", e);
+            wait_for_keypress();
         }
     }
+}
+
+fn wait_for_keypress() {
+    use std::io::{self, BufRead};
+    let stdin = io::stdin();
+    let mut handle = stdin.lock();
+    let _ = handle.read_line(&mut String::new());
 }
 
 
